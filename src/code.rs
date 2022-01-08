@@ -173,14 +173,29 @@ pub fn compile_c(
    input_file: &Path,
    output_file: &Path,
 ) -> anyhow::Result<()> {
-   let output = Command::new(compiler)
-      .arg(input_file)
-      .arg("-o")
-      .arg(output_file)
-      .arg("-lm")
-      .arg("-lpthread")
-      .arg("-ldl")
-      .output()?;
+   let compiler = compiler.as_ref();
+   let mut cmd = Command::new(compiler);
+
+   cmd.arg(input_file);
+   cmd.arg("-o");
+   cmd.arg(output_file);
+   cmd.arg("-lm");
+   cmd.arg("-lpthread");
+   cmd.arg("-ldl");
+
+   let extra_args: &[&str] = match compiler.to_str() {
+      Some("gcc" | "clang") => &[
+         "-Os",
+         "-ffunction-sections",
+         "-fdata-sections",
+         "-Wl,--gc-sections",
+      ],
+      _ => &[],
+   };
+   println!("Passing {:?}-specific flags: {:?}", compiler, extra_args);
+   // cmd.args(extra_args);
+
+   let output = cmd.output()?;
    if !output.status.success() {
       anyhow::bail!(
          "C compilation failed:\n{}",
