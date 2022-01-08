@@ -226,7 +226,7 @@ checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
 [[package]]
 name = "ffmpeg-next"
 version = "4.4.0-next.2"
-source = "git+https://github.com/liquidev/rust-ffmpeg?branch=swr-get-out-samples#e235c4ae9df920da864e25831fc8d5dc5c80c36f"
+source = "git+https://github.com/liquidev/rust-ffmpeg?branch=szmelc#3deb9aa4cfe76bd9f82a2596465ccbd6ba36cffb"
 dependencies = [
  "bitflags",
  "ffmpeg-sys-next",

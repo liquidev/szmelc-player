@@ -118,6 +118,7 @@ impl AudioTranscoder {
                );
             }
             self.resampler.run(&self.decoded, &mut self.resampled)?;
+            self.resampled.set_pts(self.decoded.timestamp());
             self.encoder.send_frame(&self.resampled)?;
             encode_resampled_frames(&mut self.encoder)?;
          }
@@ -133,7 +134,6 @@ impl AudioTranscoder {
       }
       self.decoder.send_eof()?;
       self.decoder.flush();
-      resample_decoded_frames(&mut self.decoder)?;
 
       while let Ok(delay) = self.resampler.flush(&mut self.resampled) {
          self.encoder.send_frame(&self.resampled)?;

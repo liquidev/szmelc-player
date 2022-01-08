@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.52"
 colored = "2.0.0"
-ffmpeg-next = { git = "https://github.com/liquidev/rust-ffmpeg", branch = "swr-get-out-samples" }
+ffmpeg-next = { git = "https://github.com/liquidev/rust-ffmpeg", branch = "szmelc" }
 image = "0.23.14"
 pbr = "1.0.4"
 structopt = "0.3.25"
