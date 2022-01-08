@@ -36,9 +36,15 @@ where
       Ok(())
    }
 
-   /// Generates a `#define`.
-   pub fn define(&mut self, name: &str, value: &str) -> anyhow::Result<()> {
-      write!(self.output, "\n#define {} ({})", name, value)?;
+   /// Generates a `#define` without a value.
+   pub fn define(&mut self, name: &str) -> anyhow::Result<()> {
+      write!(self.output, "\n#define {}", name)?;
+      Ok(())
+   }
+
+   /// Generates a `#define` with a value.
+   pub fn define_value(&mut self, name: &str, value: &str) -> anyhow::Result<()> {
+      write!(self.output, "\n#define {} {}", name, value)?;
       Ok(())
    }
 
@@ -186,6 +192,7 @@ pub fn compile_c(
    let extra_args: &[&str] = match compiler.to_str() {
       Some("gcc" | "clang") => &[
          "-Os",
+         "-s",
          "-ffunction-sections",
          "-fdata-sections",
          "-Wl,--gc-sections",
@@ -193,7 +200,7 @@ pub fn compile_c(
       _ => &[],
    };
    println!("Passing {:?}-specific flags: {:?}", compiler, extra_args);
-   // cmd.args(extra_args);
+   cmd.args(extra_args);
 
    let output = cmd.output()?;
    if !output.status.success() {

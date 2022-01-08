@@ -52,14 +52,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
          resize: args.resize.map(|FrameSize(width, height)| (width, height)),
       },
    )?;
-   generator.define("VIDEO_WIDTH", &video.width.to_string())?;
-   generator.define("VIDEO_HEIGHT", &video.height.to_string())?;
+   generator.define_value("VIDEO_WIDTH", &video.width.to_string())?;
+   generator.define_value("VIDEO_HEIGHT", &video.height.to_string())?;
 
    let sleep_interval = {
       let (num, den) = video.framerate;
       den as f64 / num as f64 * 1_000_000.0
    } as u64;
-   generator.define("SLEEP_INTERVAL", &sleep_interval.to_string())?;
+   generator.define_value("SLEEP_INTERVAL", &sleep_interval.to_string())?;
 
    progress::task("Transcoding video");
    let mut progress_bar = ProgressBar::new(video.packet_count as u64);
@@ -81,13 +81,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
    }
    progress_bar.finish();
    let mut generator = video_data.finish()?;
-   generator.define("VIDEO_FRAME_COUNT", &frame_count.to_string())?;
+   generator.define_value("VIDEO_FRAME_COUNT", &frame_count.to_string())?;
 
    progress::task("Reading audio file");
    let flac_file =
       tempfile::Builder::new().prefix("szmelc-audio").suffix(".flac").tempfile()?.into_temp_path();
    let transcoder = AudioTranscoder::new(&args.input_file, &flac_file)?;
-   generator.define("AUDIO_SAMPLE_RATE", &transcoder.sample_rate.to_string())?;
+   generator.define_value("AUDIO_SAMPLE_RATE", &transcoder.sample_rate.to_string())?;
 
    progress::task("Transcoding audio");
    let mut progress_bar = ProgressBar::new(transcoder.packet_count as u64);
@@ -114,9 +114,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
    miniaudio.write_all(MINIAUDIO_H)?;
 
    let mut generator = audio_data.finish()?;
-   generator.define("MINIAUDIO_IMPLEMENTATION", "1")?;
-   generator.define("MA_NO_WAV", "1")?;
-   generator.define("MA_NO_MP3", "1")?;
+   generator.define("MINIAUDIO_IMPLEMENTATION")?;
+   generator.define("MA_NO_ENCODING")?;
+   generator.define("MA_NO_WAV")?;
+   generator.define("MA_NO_MP3")?;
+   generator.define("MA_NO_GENERATION")?;
+   generator.define_value("MA_API", "")?;
    generator.include(
       miniaudio
          .path()
