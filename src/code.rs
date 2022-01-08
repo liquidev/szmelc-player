@@ -42,6 +42,17 @@ where
       Ok(())
    }
 
+   /// Generates an `#include`. If the given path string does not start with `"` or `<`, the quotes
+   /// are added automatically.
+   pub fn include(&mut self, path: &str) -> anyhow::Result<()> {
+      if let b'"' | b'<' = path.as_bytes()[0] {
+         write!(self.output, "\n#include {}", path)?;
+      } else {
+         write!(self.output, "\n#include \"{}\"", path)?;
+      }
+      Ok(())
+   }
+
    /// Starts generating code for a constant byte array.
    pub fn const_byte_array(mut self, name: &str) -> anyhow::Result<ConstByteArray<W>> {
       write!(self.output, "\nconst unsigned char {}[] = {{", name)?;
@@ -87,7 +98,38 @@ const MAIN: &str = r#"
 #include <stdlib.h>
 #include <unistd.h>
 
-int main(void) {
+struct audio_context {
+   ma_decoder decoder;
+};
+
+void audio_callback(ma_device *device, void *output, const void *input, uint32_t frame_count)
+{
+   struct audio_context *actx = device->pUserData;
+   ma_decoder_read_pcm_frames(&actx->decoder, output, frame_count, NULL);
+}
+
+int main(void)
+{
+   struct audio_context actx = {0};
+
+   ma_decoder_config decoder_config = ma_decoder_config_init(ma_format_s16, 2, AUDIO_SAMPLE_RATE);
+   ma_decoder_init_memory((void *)audio_data, sizeof audio_data, &decoder_config, &actx.decoder);
+
+   ma_device_config config = ma_device_config_init(ma_device_type_playback);
+   config.playback.format = ma_format_s16;
+   config.playback.channels = 2;
+   config.sampleRate = AUDIO_SAMPLE_RATE;
+   config.dataCallback = audio_callback;
+   config.pUserData = &actx;
+
+   ma_device device;
+   if (ma_device_init(NULL, &config, &device) != MA_SUCCESS) {
+      fprintf(stderr, "audio error: failed to initialize device\n");
+      return -1;
+   }
+
+   ma_device_start(&device);
+
    printf("\e[2J\e[0;0H");
    for (size_t i = 0; i < VIDEO_FRAME_COUNT; ++i) {
       printf("\e[0;0H");
@@ -114,21 +156,34 @@ int main(void) {
       }
       usleep(SLEEP_INTERVAL);
    }
+
+   ma_device_uninit(&device);
 }
 "#;
 
 /// Compiles an executable using the given C compiler.
 ///
-/// The compiler must be capable of accepting an `-o <output-executable>` argument.
+/// The compiler must be capable of accepting the following arguments:
+/// - `-o <output-executable>`
+/// - `-lm`
+/// - `-lpthread`
+/// - `-ldl`
 pub fn compile_c(
    compiler: impl AsRef<OsStr>,
    input_file: &Path,
    output_file: &Path,
 ) -> anyhow::Result<()> {
-   let output = Command::new(compiler).arg(input_file).arg("-o").arg(output_file).output()?;
+   let output = Command::new(compiler)
+      .arg(input_file)
+      .arg("-o")
+      .arg(output_file)
+      .arg("-lm")
+      .arg("-lpthread")
+      .arg("-ldl")
+      .output()?;
    if !output.status.success() {
       anyhow::bail!(
-         "C compilation failed: {}",
+         "C compilation failed:\n{}",
          String::from_utf8_lossy(&output.stderr)
       )
    } else {

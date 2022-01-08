@@ -225,9 +225,8 @@ checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
 
 [[package]]
 name = "ffmpeg-next"
-version = "4.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4676cda947a87a1e8a42e154059c567e75de64860252cce52c684acd8c074fa0"
+version = "4.4.0-next.2"
+source = "git+https://github.com/liquidev/rust-ffmpeg?branch=swr-get-out-samples#e235c4ae9df920da864e25831fc8d5dc5c80c36f"
 dependencies = [
  "bitflags",
  "ffmpeg-sys-next",

@@ -1,4 +1,4 @@
-//! Converting any arbitrary video into a sequence of frames, as well as an audio track.
+//! Converting any arbitrary video into a sequence of frames.
 
 use std::path::Path;
 
@@ -8,7 +8,7 @@ use ffmpeg_next::util::frame::video::Video as VideoFrame;
 use ffmpeg_next::{decoder, media, Packet};
 use image::{Rgb, RgbImage};
 
-/// A video consisting of a sequence of frames, as well as an Ogg Vorbis audio file.
+/// A video decoder.
 pub struct VideoDecoder {
    pub width: u32,
    pub height: u32,

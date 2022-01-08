@@ -1,12 +1,17 @@
+use std::fs::File;
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::PathBuf;
 use std::str::FromStr;
+use std::time::Duration;
 
+use audio::AudioTranscoder;
 use code::Generator;
 use image::EncodableLayout;
 use pbr::ProgressBar;
 use structopt::StructOpt;
 use video::{FfmpegOptions, VideoDecoder};
 
+mod audio;
 mod code;
 mod progress;
 mod video;
@@ -33,6 +38,8 @@ struct Args {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
    let args = Args::from_args();
+   ffmpeg_next::init()?;
+   ffmpeg_next::format::register_all();
 
    let c_file = tempfile::Builder::new().prefix("szmelc-player").suffix(".c").tempfile()?;
    let mut generator = Generator::new(&c_file);
@@ -54,9 +61,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
    } as u64;
    generator.define("SLEEP_INTERVAL", &sleep_interval.to_string())?;
 
-   progress::task("Transcoding frames");
+   progress::task("Transcoding video");
    let mut progress_bar = ProgressBar::new(video.packet_count as u64);
-   let mut frame_data = generator.const_byte_array("video_data")?;
+   progress_bar.set_max_refresh_rate(Some(Duration::from_millis(100)));
+   let mut video_data = generator.const_byte_array("video_data")?;
    let mut frame_count: usize = 0;
    while let Some(event) = video.next()? {
       match event {
@@ -65,15 +73,56 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
          }
          video::VideoDecodeEvent::Frame(image) => {
             for &byte in image.as_bytes() {
-               frame_data.byte(byte)?;
+               video_data.byte(byte)?;
             }
             frame_count += 1;
          }
       }
    }
    progress_bar.finish();
-   let mut generator = frame_data.finish()?;
+   let mut generator = video_data.finish()?;
    generator.define("VIDEO_FRAME_COUNT", &frame_count.to_string())?;
+
+   progress::task("Reading audio file");
+   let flac_file =
+      tempfile::Builder::new().prefix("szmelc-audio").suffix(".flac").tempfile()?.into_temp_path();
+   let transcoder = AudioTranscoder::new(&args.input_file, &flac_file)?;
+   generator.define("AUDIO_SAMPLE_RATE", &transcoder.sample_rate.to_string())?;
+
+   progress::task("Transcoding audio");
+   let mut progress_bar = ProgressBar::new(transcoder.packet_count as u64);
+   // progress_bar.set_max_refresh_rate(Some(Duration::from_millis(100)));
+   transcoder.transcode_to_flac(|| {
+      progress_bar.inc();
+   })?;
+   progress_bar.finish();
+
+   progress::task("Embedding audio into executable");
+   let mut audio_data = generator.const_byte_array("audio_data")?;
+   let mut flac_file = File::open(&flac_file)?;
+   let mut progress_bar = ProgressBar::new(file_size(&mut flac_file)?);
+   progress_bar.set_max_refresh_rate(Some(Duration::from_millis(100)));
+   for byte in flac_file.bytes() {
+      progress_bar.inc();
+      audio_data.byte(byte?)?;
+   }
+
+   progress::task("Finishing C code generation");
+   const MINIAUDIO_H: &'static [u8] = include_bytes!("vendor/miniaudio.h");
+   let mut miniaudio =
+      tempfile::Builder::new().prefix("szmelc-miniaudio").suffix(".h").tempfile()?;
+   miniaudio.write_all(MINIAUDIO_H)?;
+
+   let mut generator = audio_data.finish()?;
+   generator.define("MINIAUDIO_IMPLEMENTATION", "1")?;
+   generator.define("MA_NO_WAV", "1")?;
+   generator.define("MA_NO_MP3", "1")?;
+   generator.include(
+      miniaudio
+         .path()
+         .to_str()
+         .ok_or_else(|| anyhow::anyhow!("temporary directory path has invalid UTF-8"))?,
+   )?;
    generator.main()?;
 
    if !args.generate_c {
@@ -100,4 +149,11 @@ impl FromStr for FrameSize {
       let height = split.next().ok_or_else(|| anyhow::anyhow!("missing frame height"))?.parse()?;
       Ok(Self(width, height))
    }
+}
+
+/// Returns the size of a file, in bytes.
+fn file_size(file: &mut File) -> anyhow::Result<u64> {
+   let size = file.seek(SeekFrom::End(0))?;
+   file.seek(SeekFrom::Start(0))?;
+   Ok(size)
 }
