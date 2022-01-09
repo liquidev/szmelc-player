@@ -48,27 +48,16 @@ where
       Ok(())
    }
 
-   /// Generates an `#include`. If the given path string does not start with `"` or `<`, the quotes
-   /// are added automatically.
-   pub fn include(&mut self, path: &str) -> anyhow::Result<()> {
-      if let b'"' | b'<' = path.as_bytes()[0] {
-         write!(self.output, "\n#include {}", path)?;
-      } else {
-         write!(self.output, "\n#include \"{}\"", path)?;
-      }
-      Ok(())
-   }
-
    /// Starts generating code for a constant byte array.
    pub fn const_byte_array(mut self, name: &str) -> anyhow::Result<ConstByteArray<W>> {
-      write!(self.output, "\nconst unsigned char {}[] = {{", name)?;
+      write!(self.output, "\nstatic const unsigned char {}[] = {{", name)?;
       Ok(ConstByteArray { generator: self })
    }
 
    /// Generates the `main` function.
    pub fn main(mut self) -> anyhow::Result<()> {
       self.output.write_all(b"\n")?;
-      self.output.write_all(MAIN.as_bytes())?;
+      self.output.write_all(MAIN)?;
       self.output.flush()?;
       Ok(())
    }
@@ -99,73 +88,7 @@ where
    }
 }
 
-const MAIN: &str = r#"
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-
-struct audio_context {
-   ma_decoder decoder;
-};
-
-void audio_callback(ma_device *device, void *output, const void *input, uint32_t frame_count)
-{
-   struct audio_context *actx = device->pUserData;
-   ma_decoder_read_pcm_frames(&actx->decoder, output, frame_count, NULL);
-}
-
-int main(void)
-{
-   struct audio_context actx = {0};
-
-   ma_decoder_config decoder_config = ma_decoder_config_init(ma_format_s16, 2, AUDIO_SAMPLE_RATE);
-   ma_decoder_init_memory((void *)audio_data, sizeof audio_data, &decoder_config, &actx.decoder);
-
-   ma_device_config config = ma_device_config_init(ma_device_type_playback);
-   config.playback.format = ma_format_s16;
-   config.playback.channels = 2;
-   config.sampleRate = AUDIO_SAMPLE_RATE;
-   config.dataCallback = audio_callback;
-   config.pUserData = &actx;
-
-   ma_device device;
-   if (ma_device_init(NULL, &config, &device) != MA_SUCCESS) {
-      fprintf(stderr, "audio error: failed to initialize device\n");
-      return -1;
-   }
-
-   ma_device_start(&device);
-
-   printf("\e[2J\e[0;0H");
-   for (size_t i = 0; i < VIDEO_FRAME_COUNT; ++i) {
-      printf("\e[0;0H");
-      for (unsigned y = 0; y < VIDEO_HEIGHT; y += 2) {
-         for (unsigned x = 0; x < VIDEO_WIDTH; ++x) {
-            size_t top_index = (i * VIDEO_WIDTH * VIDEO_HEIGHT + y * VIDEO_WIDTH + x) * 3;
-            size_t bottom_index = (i * VIDEO_WIDTH * VIDEO_HEIGHT + (y + 1) * VIDEO_WIDTH + x) * 3;
-            unsigned char
-               top_r = video_data[top_index],
-               top_g = video_data[top_index + 1],
-               top_b = video_data[top_index + 2],
-               bottom_r = video_data[bottom_index],
-               bottom_g = video_data[bottom_index + 1],
-               bottom_b = video_data[bottom_index + 2];
-            printf(
-               "\e[48;2;%i;%i;%im"
-               "\e[38;2;%i;%i;%im"
-               "▄",
-               top_r, top_g, top_b,
-               bottom_r, bottom_g, bottom_b
-            );
-         }
-         printf("\e[0m\n");
-      }
-      usleep(SLEEP_INTERVAL);
-   }
-
-   ma_device_uninit(&device);
-}
-"#;
+const MAIN: &[u8] = include_bytes!("main.c");
 
 /// Compiles an executable using the given C compiler.
 ///

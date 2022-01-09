@@ -9,6 +9,7 @@ use code::Generator;
 use image::EncodableLayout;
 use pbr::ProgressBar;
 use structopt::StructOpt;
+use tempfile::NamedTempFile;
 use video::{FfmpegOptions, VideoDecoder};
 
 mod audio;
@@ -108,24 +109,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
    }
 
    progress::task("Finishing C code generation");
-   const MINIAUDIO_H: &'static [u8] = include_bytes!("vendor/miniaudio.h");
-   let mut miniaudio =
-      tempfile::Builder::new().prefix("szmelc-miniaudio").suffix(".h").tempfile()?;
-   miniaudio.write_all(MINIAUDIO_H)?;
+   let numberlut = save_header(include_bytes!("generated/numberlut.h"))?;
+   let miniaudio = save_header(include_bytes!("vendor/miniaudio.h"))?;
 
    let mut generator = audio_data.finish()?;
-   generator.define("MINIAUDIO_IMPLEMENTATION")?;
-   generator.define("MA_NO_ENCODING")?;
-   generator.define("MA_NO_WAV")?;
-   generator.define("MA_NO_MP3")?;
-   generator.define("MA_NO_GENERATION")?;
-   generator.define_value("MA_API", "")?;
-   generator.include(
-      miniaudio
-         .path()
-         .to_str()
-         .ok_or_else(|| anyhow::anyhow!("temporary directory path has invalid UTF-8"))?,
-   )?;
+   generator.define("SZMELC_BUILD")?;
+   // This is a horrible way to define strings and I acknowledge that fully.
+   // However at this moment in time I am too lazy to do this properly, so forgive my sins and
+   // send a PR fixing this.
+   generator.define_value("SZMELC_MINIAUDIO_H", &format!("{:?}", miniaudio.path()))?;
+   generator.define_value("SZMELC_NUMBERLUT_H", &format!("{:?}", numberlut.path()))?;
    generator.main()?;
 
    if !args.generate_c {
@@ -159,4 +152,10 @@ fn file_size(file: &mut File) -> anyhow::Result<u64> {
    let size = file.seek(SeekFrom::End(0))?;
    file.seek(SeekFrom::Start(0))?;
    Ok(size)
+}
+
+fn save_header(data: &[u8]) -> anyhow::Result<NamedTempFile> {
+   let mut file = tempfile::Builder::new().prefix("szmelc-runtime").suffix(".h").tempfile()?;
+   file.write_all(data)?;
+   Ok(file)
 }
