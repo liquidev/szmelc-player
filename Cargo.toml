@@ -3,6 +3,11 @@ name = "szmelc-player"
 version = "0.1.0"
 edition = "2021"
 
+[workspace]
+members = [
+   "szmelc-player-codegen",
+]
+
 [dependencies]
 anyhow = "1.0.52"
 colored = "2.0.0"
@@ -11,3 +16,6 @@ image = "0.23.14"
 pbr = "1.0.4"
 structopt = "0.3.25"
 tempfile = "3.2.0"
+
+[build-dependencies]
+szmelc-player-codegen = { path = "szmelc-player-codegen" }

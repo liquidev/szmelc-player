@@ -700,8 +700,13 @@ dependencies = [
  "image",
  "pbr",
  "structopt",
+ "szmelc-player-codegen",
  "tempfile",
 ]
+
+[[package]]
+name = "szmelc-player-codegen"
+version = "0.1.0"
 
 [[package]]
 name = "tempfile"
