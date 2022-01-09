@@ -1,7 +1,9 @@
+#include <bits/time.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #ifdef SZMELC_BUILD
@@ -78,6 +80,16 @@ static inline void video_setbg(unsigned char r, unsigned char g,
   video_print("m");
 }
 
+/* Timing */
+
+static inline void time_sleep(uint64_t us) { usleep(us); }
+
+static inline uint64_t time_now() {
+  struct timespec ts;
+  clock_gettime(CLOCK_REALTIME, &ts);
+  return (uint64_t)ts.tv_sec * 1000000 + (uint64_t)ts.tv_nsec / 1000;
+}
+
 /* Main */
 
 int main(void) {
@@ -86,6 +98,8 @@ int main(void) {
   video_print("\e[2J\e[0;0H");
   video_flush();
   for (size_t i = 0; i < VIDEO_FRAME_COUNT; ++i) {
+    uint64_t start_time = time_now();
+
     video_print("\e[0;0H");
     for (unsigned y = 0; y < VIDEO_HEIGHT; y += 2) {
       for (unsigned x = 0; x < VIDEO_WIDTH; ++x) {
@@ -106,7 +120,11 @@ int main(void) {
       video_print("\e[0m\n");
     }
     video_flush();
-    usleep(SLEEP_INTERVAL);
+
+    uint64_t end_time = time_now();
+    uint64_t render_time = end_time - start_time;
+    uint64_t wait_time = SLEEP_INTERVAL - render_time;
+    usleep(wait_time);
   }
 
   audio_stop();
