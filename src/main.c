@@ -42,6 +42,7 @@ size_t stdout_buffer_len = 0;
 
 static inline void video_flush() {
   fwrite(stdout_buffer, 1, stdout_buffer_len, stdout);
+  fflush(stdout);
   stdout_buffer_len = 0;
 }
 
