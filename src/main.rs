@@ -92,7 +92,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
    progress::task("Transcoding audio");
    let mut progress_bar = ProgressBar::new(transcoder.packet_count as u64);
-   // progress_bar.set_max_refresh_rate(Some(Duration::from_millis(100)));
+   progress_bar.set_max_refresh_rate(Some(Duration::from_millis(100)));
    transcoder.transcode_to_flac(|| {
       progress_bar.inc();
    })?;
