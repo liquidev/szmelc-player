@@ -7,11 +7,11 @@ use std::fmt::Write;
 pub fn generate_numberlut() -> String {
    let mut buffer = String::from(
       r#"
-   static const struct {
-      size_t len;
-      const char *str;
-   } byte_to_decimal[] = {
-   "#,
+         static const struct {
+            size_t len;
+            const char *str;
+         } byte_to_decimal[] = {
+      "#,
    );
 
    for i in 0..=255 {
