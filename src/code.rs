@@ -55,9 +55,13 @@ where
    }
 
    /// Generates the `main` function.
-   pub fn main(mut self) -> anyhow::Result<()> {
+   pub fn main(mut self, replacements: &[(&str, &str)]) -> anyhow::Result<()> {
+      let mut main = String::from(MAIN);
+      for &(from, to) in replacements {
+         main = main.replace(from, to);
+      }
       self.output.write_all(b"\n")?;
-      self.output.write_all(MAIN)?;
+      self.output.write_all(main.as_bytes())?;
       self.output.flush()?;
       Ok(())
    }
@@ -88,7 +92,7 @@ where
    }
 }
 
-const MAIN: &[u8] = include_bytes!("main.c");
+const MAIN: &str = include_str!("c/main.c");
 
 /// Compiles an executable using the given C compiler.
 ///
@@ -99,13 +103,12 @@ const MAIN: &[u8] = include_bytes!("main.c");
 /// - `-ldl`
 pub fn compile_c(
    compiler: impl AsRef<OsStr>,
-   input_file: &Path,
+   input_files: &[&Path],
    output_file: &Path,
 ) -> anyhow::Result<()> {
    let compiler = compiler.as_ref();
    let mut cmd = Command::new(compiler);
 
-   cmd.arg(input_file);
    cmd.arg("-o");
    cmd.arg(output_file);
    cmd.arg("-lm");
@@ -124,6 +127,8 @@ pub fn compile_c(
    };
    println!("Passing {:?}-specific flags: {:?}", compiler, extra_args);
    cmd.args(extra_args);
+
+   cmd.args(input_files);
 
    let output = cmd.output()?;
    if !output.status.success() {

@@ -695,6 +695,7 @@ name = "szmelc-player"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cc",
  "colored",
  "ffmpeg-next",
  "image",

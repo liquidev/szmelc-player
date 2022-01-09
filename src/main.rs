@@ -109,24 +109,34 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
    }
 
    progress::task("Finishing C code generation");
-   let numberlut = save_header(include_bytes!("generated/numberlut.h"))?;
-   let miniaudio = save_header(include_bytes!("vendor/miniaudio.h"))?;
+   let numberlut = save_temp(include_bytes!("c/generated/numberlut.h"), ".h")?;
+   let audio = save_temp(include_bytes!("c/audio.h"), ".h")?;
+   let libaudio = save_temp(include_bytes!("c/generated/libs/libaudio.a"), ".a")?;
 
    let mut generator = audio_data.finish()?;
    generator.define("SZMELC_BUILD")?;
    // This is a horrible way to define strings and I acknowledge that fully.
    // However at this moment in time I am too lazy to do this properly, so forgive my sins and
    // send a PR fixing this.
-   generator.define_value("SZMELC_MINIAUDIO_H", &format!("{:?}", miniaudio.path()))?;
    generator.define_value("SZMELC_NUMBERLUT_H", &format!("{:?}", numberlut.path()))?;
-   generator.main()?;
+   generator.main(&[
+      ("\"{SZMELC_AUDIO_H}\"", &format!("{:?}", audio.path())),
+      (
+         "\"{SZMELC_NUMBERLUT_H}\"",
+         &format!("{:?}", numberlut.path()),
+      ),
+   ])?;
 
    if !args.generate_c {
       progress::task("Compiling executable");
       let compiler =
          std::env::var("SZMELC_CC").or_else(|_| std::env::var("CC")).unwrap_or("cc".to_owned());
       println!("Using C compiler: {}", compiler);
-      code::compile_c(compiler, c_file.path(), &args.output_file)?;
+      code::compile_c(
+         compiler,
+         &[c_file.path(), libaudio.path()],
+         &args.output_file,
+      )?;
    } else {
       std::fs::copy(c_file.path(), &args.output_file)?;
    }
@@ -154,8 +164,9 @@ fn file_size(file: &mut File) -> anyhow::Result<u64> {
    Ok(size)
 }
 
-fn save_header(data: &[u8]) -> anyhow::Result<NamedTempFile> {
-   let mut file = tempfile::Builder::new().prefix("szmelc-runtime").suffix(".h").tempfile()?;
+/// Saves a file as a named temporary file.
+fn save_temp(data: &[u8], suffix: &str) -> anyhow::Result<NamedTempFile> {
+   let mut file = tempfile::Builder::new().prefix("szmelc").suffix(suffix).tempfile()?;
    file.write_all(data)?;
    Ok(file)
 }

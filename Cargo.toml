@@ -18,4 +18,6 @@ structopt = "0.3.25"
 tempfile = "3.2.0"
 
 [build-dependencies]
+cc = "1.0.72"
+
 szmelc-player-codegen = { path = "szmelc-player-codegen" }

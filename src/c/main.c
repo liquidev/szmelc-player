@@ -4,23 +4,17 @@
 #include <string.h>
 #include <unistd.h>
 
-#define MINIAUDIO_NO_ENCODING
-#define MINIAUDIO_NO_MP3
-#define MINIAUDIO_NO_WAV
-#define MINIAUDIO_NO_GENERATION
-
 #ifdef SZMELC_BUILD
-#define MINIAUDIO_IMPLEMENTATION
-#include SZMELC_MINIAUDIO_H
-#include SZMELC_NUMBERLUT_H
+#include "{SZMELC_AUDIO_H}"
+#include "{SZMELC_NUMBERLUT_H}"
 #else
 
 // The following definitions are provided in case the code is _not_ being built
 // by Szmelc Player, so that code analysis tools such as clangd don't get
 // confused by the lack of symbols.
 
+#include "audio.h"
 #include "generated/numberlut.h"
-#include "vendor/miniaudio.h"
 
 #define VIDEO_WIDTH 80
 #define VIDEO_HEIGHT 48
@@ -84,42 +78,10 @@ static inline void video_setbg(unsigned char r, unsigned char g,
   video_print("m");
 }
 
-/* Audio runtime */
-
-struct audio_context {
-  ma_decoder decoder;
-};
-
-static void audio_callback(ma_device *device, void *output, const void *input,
-                           uint32_t frame_count) {
-  struct audio_context *actx = device->pUserData;
-  ma_decoder_read_pcm_frames(&actx->decoder, output, frame_count, NULL);
-}
-
 /* Main */
 
 int main(void) {
-  struct audio_context actx = {0};
-
-  ma_decoder_config decoder_config =
-      ma_decoder_config_init(ma_format_s16, 2, AUDIO_SAMPLE_RATE);
-  ma_decoder_init_memory((void *)audio_data, sizeof audio_data, &decoder_config,
-                         &actx.decoder);
-
-  ma_device_config config = ma_device_config_init(ma_device_type_playback);
-  config.playback.format = ma_format_s16;
-  config.playback.channels = 2;
-  config.sampleRate = AUDIO_SAMPLE_RATE;
-  config.dataCallback = audio_callback;
-  config.pUserData = &actx;
-
-  ma_device device;
-  if (ma_device_init(NULL, &config, &device) != MA_SUCCESS) {
-    fprintf(stderr, "audio error: failed to initialize device\n");
-    return -1;
-  }
-
-  ma_device_start(&device);
+  audio_play(sizeof audio_data, audio_data, AUDIO_SAMPLE_RATE);
 
   video_print("\e[2J\e[0;0H");
   video_flush();
@@ -147,5 +109,5 @@ int main(void) {
     usleep(SLEEP_INTERVAL);
   }
 
-  ma_device_uninit(&device);
+  audio_stop();
 }
